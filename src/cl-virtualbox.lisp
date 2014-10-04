@@ -97,35 +97,45 @@
   (run-cmd (cmd "createvm --name ~S --register" name)))
 
 (defun set-vm-memory (name memory)
+  "Set the VM's memory (In megabytes)"
   (run-cmd (cmd "modifyvm ~S --memory ~A" name memory)))
 
 (defun set-vm-vram (name memory)
+  "The the VM's video memory (In megabytes)."
   (run-cmd (cmd "modifyvm ~S --vram ~A" name memory)))
 
 (defun set-vm-cpu-count (name count)
+  "Set the number of virtual CPUs the VM has."
   (run-cmd (cmd "modifyvm ~S --cpus ~A" name count)))
 
 (defun set-vm-acpi (name state)
+  "Turn ACPI support on/off."
   (run-cmd (cmd "modifyvm ~S --acpi ~A" name (bool->str state))))
 
 (defun set-vm-ioapic (name state)
+  "Turn IOAPIC support on/off."
   (run-cmd (cmd "modifyvm ~S --ioapic ~A" name (bool->str state))))
 
 (defun set-vm-pae (name state)
+  "Enable/disable PAE."
   (run-cmd (cmd "modifyvm ~S --pae ~A" name (bool->str state))))
 
 (defun set-vm-longmode (name state)
+  "Enable/disable longmode."
   (run-cmd (cmd "modifyvm ~S --longmode ~A" name (bool->str state))))
 
 (defun set-vm-hpet (name state)
+  "Enable/disable the High-Precision Event Timer (HPET)."
   (run-cmd (cmd "modifyvm ~S --hpet ~A" name (bool->str state))))
 
 (defun set-vm-3d-acceleration (name state)
+  "Enable/disable 3D acceleration."
   (run-cmd (cmd "modifyvm ~S --accelerate3d ~A" name (bool->str state))))
 
 ;;; VM Network Configuration
 
 (defun map-vm-ports (name host-port guest-port)
+  "Map TCP traffic to `host-port` to `guest-port` in the guest."
   (run-cmd (cmd "modifyvm ~S --natpf1 \",tcp,,~A,,~A\""
                 name host-port guest-port)))
 
@@ -164,7 +174,9 @@ type `type` (:vdi by default)."
 ;;; DVDs
 
 (defun mount-dvd (name path)
+  "Mount a DVD to the virtual machine."
   (run-cmd (cmd "modifyvm ~S --dvd ~S" name (namestring path))))
 
 (defun unmount-dvd (name)
+  "Remove the DVD from the virtual DVD drive."
   (run-cmd (cmd "modifyvm ~S --dvd none" name)))
