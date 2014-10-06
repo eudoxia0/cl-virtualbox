@@ -73,7 +73,7 @@
   (parse-vm-list (run-cmd (cmd "list vms"))))
 
 (defun list-running-vms ()
-  "Like virtual-machines, but only return the VMs that are running."
+  "Like `list-vms`, but only return the VMs that are running."
   (parse-vm-list (run-cmd (cmd "list runningvms"))))
 
 ;;; Finding VMs
