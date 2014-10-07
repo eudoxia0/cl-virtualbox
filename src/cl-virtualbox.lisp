@@ -5,6 +5,7 @@
   (:export :*vboxmanage-path*
            :list-vms
            :list-running-vms
+           :list-host-only-ifs
            :find-by-name
            :find-by-uuid
            :create-vm
@@ -18,12 +19,14 @@
            :set-vm-hpet
            :set-vm-3d-acceleration
            :map-vm-ports
+           :set-vm-ip
            :start-vm
            :pause-vm
            :resume-vm
            :cold-reboot-vm
            :poweroff-vm
            :create-hd
+           :attach-hd
            :mount-dvd
            :unmount-dvd))
 (in-package :cl-virtualbox)
@@ -54,6 +57,9 @@
 (defun split-by-newlines (string)
   (cl-ppcre:split "\\r?\\n" string))
 
+(defun split-by-double-newlines (string)
+  (cl-ppcre:split "\\r?\\n\\r?\\n" string))
+
 (defun parse-list-line (line)
   (multiple-value-bind (match registers)
       (cl-ppcre:scan-to-strings "^\\\"(.+)\\\" \\{(.+)\\}$" line)
@@ -63,6 +69,15 @@
 (defun parse-vm-list (string)
   (mapcar #'(lambda (line) (parse-list-line line))
           (split-by-newlines string)))
+
+(defun parse-key-value (string)
+  (let ((split (cl-ppcre:split ":[^\\w]+" string)))
+    (cons (first split) (second split))))
+
+(defun parse-report (string)
+  (loop for report in (split-by-double-newlines string) collecting
+    (loop for line in (split-by-newlines report) collecting
+      (parse-key-value line))))
 
 ;;;; Interface
 
@@ -75,6 +90,10 @@
 (defun list-running-vms ()
   "Like `list-vms`, but only return the VMs that are running."
   (parse-vm-list (run-cmd (cmd "list runningvms"))))
+
+(defun list-host-only-ifs ()
+  "List host only interfaces."
+  (parse-report (run-cmd (cmd "list hostonlyifs"))))
 
 ;;; Finding VMs
 
@@ -134,10 +153,18 @@
 
 ;;; VM Network Configuration
 
-(defun map-vm-ports (name host-port guest-port)
-  "Map TCP traffic to `host-port` to `guest-port` in the guest."
-  (run-cmd (cmd "modifyvm ~S --natpf1 \",tcp,,~A,,~A\""
+(defun map-vm-ports (name host-port guest-ip guest-port)
+  "Map TCP traffic from `host-port` to `guest-ip:guest-port` in the guest."
+  (run-cmd (cmd "modifyvm ~S --natpf1 \",tcp,,~A,~A,~A\""
                 name host-port guest-port)))
+
+(defun set-vm-ip (name network-name ip-address lower-ip upper-ip
+                  &optional (network-mask "255.255.255.0"))
+  (run-cmd (cmd "hostonlyif ipconfig ~A --ip 192.168.56.1" network-name))
+  (run-cmd (cmd "dhcpserver add --ifname ~A --ip ~A --netmask ~A --lowerip ~A --upperip ~A"
+                network-name ip-address net-mask lower-up upper-up))
+  (run-cmd (cmd "dhcpserver modify --ifname ~A --enable" network-name))
+  (run-cmd (cmd "modifyvm ~S --intnet1 ~S" name network-name)))
 
 ;;; Controlling VM state
 
@@ -171,6 +198,11 @@ type `type` (:vdi by default)."
                 size
                 (string-upcase (keyword->str format)))))
 
+(defun attach-hd (name pathname &optional (controller "SATA Controller")
+                                  (device 0) (port 0))
+  (run-cmd (cmd "~S --storagectl ~S --device ~A --port ~A --type hdd --medium ~S"
+                name controller device port pathname)))
+
 ;;; DVDs
 
 (defun mount-dvd (name path)
@@ -180,3 +212,141 @@ type `type` (:vdi by default)."
 (defun unmount-dvd (name)
   "Remove the DVD from the virtual DVD drive."
   (run-cmd (cmd "modifyvm ~S --dvd none" name)))
+
+;;; Virtual Keyboard Input
+
+;;; See http://www.win.tue.nl/~aeb/linux/kbd/scancodes-1.html
+;;; This is horrible
+
+(defun send-virtual-input (name scancodes)
+  (run-cmd (cmd "controlvm ~S keyboardputscancode ~A" name scancodes)))
+
+(defparameter +character-scancode-map+
+  (alexandria:alist-hash-table
+   '((1 . "02 82")
+    (#\2 . "03 83")
+    (#\3 . "04 84")
+    (#\4 . "05 85")
+    (#\5 . "06 86")
+    (#\6 . "07 87")
+    (#\7 . "08 88")
+    (#\8 . "09 89")
+    (#\9 . "0a 8a")
+    (#\0 . "0b 8b")
+    (#\- . "0c 8c")
+    (#\= . "0d 8d")
+    (#\q . "10 90")
+    (#\w . "11 91")
+    (#\e . "12 92")
+    (#\r . "13 93")
+    (#\t . "14 94")
+    (#\y . "15 95")
+    (#\u . "16 96")
+    (#\i . "17 97")
+    (#\o . "18 98")
+    (#\p . "19 99")
+    (#\[ . "1a 9a")
+    (#\] . "1b 9b")
+    (#\a . "1e 9e")
+    (#\s . "1f 9f")
+    (#\d . "20 a0")
+    (#\f . "21 a1")
+    (#\g . "22 a2")
+    (#\h . "23 a3")
+    (#\j . "24 a4")
+    (#\k . "25 a5")
+    (#\l . "26 a6")
+    (#\; . "27 a7")
+    (#\' . "28 a8")
+    (#\` . "29 a9")
+    (#\\ . "2b ab")
+    (#\z . "2c ac")
+    (#\x . "2d ad")
+    (#\c . "2e ae")
+    (#\v . "2f af")
+    (#\b . "30 b0")
+    (#\n . "31 b1")
+    (#\m . "32 b2")
+    (#\, . "33 b3")
+    (#\. . "34 b4")
+    (#\/ . "35 b5")
+    (#\! . "2a 02 aa 82")
+    (#\@ . "2a 03 aa 83")
+    (#\# . "2a 04 aa 84")
+    (#\$ . "2a 05 aa 85")
+    (#\% . "2a 06 aa 86")
+    (#\^ . "2a 07 aa 87")
+    (#\& . "2a 08 aa 88")
+    (#\* . "2a 09 aa 89")
+    (#\( . "2a 0a aa 8a")
+    (#\) . "2a 0b aa 8b")
+    (#\_ . "2a 0c aa 8c")
+    (#\+ . "2a 0d aa 8d")
+    (#\Q . "2a 10 aa 90")
+    (#\W . "2a 11 aa 91")
+    (#\E . "2a 12 aa 92")
+    (#\R . "2a 13 aa 93")
+    (#\T . "2a 14 aa 94")
+    (#\Y . "2a 15 aa 95")
+    (#\U . "2a 16 aa 96")
+    (#\I . "2a 17 aa 97")
+    (#\O . "2a 18 aa 98")
+    (#\P . "2a 19 aa 99")
+    (#\{ . "2a 1a aa 9a")
+    (#\} . "2a 1b aa 9b")
+    (#\A . "2a 1e aa 9e")
+    (#\S . "2a 1f aa 9f")
+    (#\D . "2a 20 aa a0")
+    (#\F . "2a 21 aa a1")
+    (#\G . "2a 22 aa a2")
+    (#\H . "2a 23 aa a3")
+    (#\J . "2a 24 aa a4")
+    (#\K . "2a 25 aa a5")
+    (#\L . "2a 26 aa a6")
+    (#\: . "2a 27 aa a7")
+    (#\" . "2a 28 aa a8")
+    (#\~ . "2a 29 aa a9")
+    (#\| . "2a 2b aa ab")
+    (#\Z . "2a 2c aa ac")
+    (#\X . "2a 2d aa ad")
+    (#\C . "2a 2e aa ae")
+    (#\V . "2a 2f aa af")
+    (#\B . "2a 30 aa b0")
+    (#\N . "2a 31 aa b1")
+    (#\M . "2a 32 aa b2")
+    (#\< . "2a 33 aa b3")
+    (#\> . "2a 34 aa b4")
+    (#\? . "2a 35 aa b5"))))
+
+(defparameter +special-scancode-map+
+  (alexandria:plist-hash-table
+   '(;; Basic
+     :tab "0f 8f"
+     :enter "1c 9c"
+     :backspace "0e 8e"
+     :space "39 b9"
+     :return "1c 9c"
+     :esc "01 81"
+     ;; Arrows
+     :up "48 c8"
+     :down "50 d0"
+     :left "4b cb"
+     :right "4d cd"
+     ;; Page control
+     :page-up "49 c9"
+     :page-down "51 d1"
+     :home "47 c7"
+     :end "4f cf"
+     :insert "52 d2"
+     :delete "53 d3"
+     ;; Function keys
+     :f1 "3b"
+     :f2 "3c"
+     :f3 "3d"
+     :f4 "3e"
+     :f5 "3f"
+     :f6 "40"
+     :f7 "41"
+     :f8 "42"
+     :f9 "43"
+     :f10 "44")))
