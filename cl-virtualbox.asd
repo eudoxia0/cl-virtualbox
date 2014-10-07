@@ -8,7 +8,8 @@
   :author "Fernando Borretti"
   :license "MIT"
   :depends-on (:cl-ppcre
-               :uiop)
+               :uiop
+               :alexandria)
   :components ((:module "src"
                 :components
                 ((:file "cl-virtualbox"))))
