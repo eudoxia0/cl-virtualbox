@@ -68,8 +68,8 @@ virtualbox> (find-by-uuid "9ad98045-5109-4233-8b82-4c9a49b4cab7")
 
 ## Network Configuration
 
-* `map-vm-ports (name host-port guest-port)`: Map TCP traffic to `host-port` to
-  `guest-port` in the guest.
+* `map-vm-ports (name host-port guest-port)`: Map TCP traffic from `host-port`
+  to `guest-ip:guest-port` in the guest.
 
 ## Controlling VM State
 
