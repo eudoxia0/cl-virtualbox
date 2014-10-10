@@ -9,6 +9,7 @@
            :find-by-name
            :find-by-uuid
            :create-vm
+           :import-vm
            :set-vm-memory
            :set-vm-vram
            :set-vm-cpu-count
@@ -42,7 +43,9 @@
 
 ;;; Commands
 
-(defparameter *vboxmanage-path* "vboxmanage"
+(defparameter *vboxmanage-path*
+  #-(or win32 mswindows) "vboxmanage"
+  #+(or win32 mswindows) "VBoxManage.exe"
   "The path to the VBoxManage command.")
 
 (defun cmd (command-format &rest args)
@@ -116,6 +119,13 @@
   "Create a new virtual machine named `name`."
   (run-cmd (cmd "createvm --name ~S --register" name)))
 
+(defun import-vm (ovf-path &optional name)
+  "Import a virtual machine from an OVF file."
+  (run-cmd (if name
+               (cmd "import ~S --vsys 0 --vmname ~S"
+                    (namestring ovf-path) name)
+               (cmd "import ~S" (namestring ovf-path)))))
+
 (defun set-vm-memory (name memory)
   "Set the VM's memory (In megabytes)"
   (run-cmd (cmd "modifyvm ~S --memory ~A" name memory)))
@@ -157,13 +167,13 @@
 (defun map-vm-ports (name host-port guest-ip guest-port)
   "Map TCP traffic from `host-port` to `guest-ip:guest-port` in the guest."
   (run-cmd (cmd "modifyvm ~S --natpf1 \",tcp,,~A,~A,~A\""
-                name host-port guest-port)))
+                name host-port guest-ip guest-port)))
 
 (defun set-vm-ip (name network-name ip-address lower-ip upper-ip
                   &optional (network-mask "255.255.255.0"))
   (run-cmd (cmd "hostonlyif ipconfig ~A --ip 192.168.56.1" network-name))
   (run-cmd (cmd "dhcpserver add --ifname ~A --ip ~A --netmask ~A --lowerip ~A --upperip ~A"
-                network-name ip-address net-mask lower-up upper-up))
+                network-name ip-address network-mask lower-ip upper-ip))
   (run-cmd (cmd "dhcpserver modify --ifname ~A --enable" network-name))
   (run-cmd (cmd "modifyvm ~S --intnet1 ~S" name network-name)))
 
@@ -202,7 +212,7 @@ type `type` (:vdi by default)."
 (defun attach-hd (name pathname &optional (controller "SATA Controller")
                                   (device 0) (port 0))
   (run-cmd (cmd "~S --storagectl ~S --device ~A --port ~A --type hdd --medium ~S"
-                name controller device port pathname)))
+                name controller device port (namestring pathname))))
 
 ;;; DVDs
 
