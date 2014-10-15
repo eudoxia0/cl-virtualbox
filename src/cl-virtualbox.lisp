@@ -30,7 +30,8 @@
            :attach-hd
            :mount-dvd
            :unmount-dvd
-           :send-virtual-input))
+           :send-virtual-input
+           :execute))
 (in-package :cl-virtualbox)
 
 ;;; Utils
@@ -377,3 +378,18 @@ type `type` (:vdi by default)."
        (send-scancodes name (string->scancodes input)))
       (keyword
        (send-scancodes name (keyword->scancodes input))))))
+
+;;; Execute code
+
+(defun execute (name image username password &key wait-stdout)
+  "Execute `image` on the virtual machine `name`, under the account `username`
+and `password`. If `wait-stdout` is true, wait for the program to finish and
+print its output."
+  (run-cmd (cmd "guestcontrol ~S execute --image ~S --username ~S --password ~S ~A"
+                name
+                image
+                username
+                password
+                (if wait-stdout
+                    "--wait-stdout"
+                    ""))))
