@@ -20,6 +20,7 @@
            :set-vm-hpet
            :set-vm-3d-acceleration
            :map-vm-ports
+           :configure-network
            :set-vm-ip
            :start-vm
            :pause-vm
@@ -170,13 +171,23 @@
   (run-cmd (cmd "modifyvm ~S --natpf1 \",tcp,,~A,~A,~A\""
                 name host-port guest-ip guest-port)))
 
-(defun set-vm-ip (name network-name ip-address lower-ip upper-ip
+(defun configure-network (name network-name ip-address lower-ip upper-ip
                   &optional (network-mask "255.255.255.0"))
-  (run-cmd (cmd "hostonlyif ipconfig ~A --ip 192.168.56.1" network-name))
+  "The hard way to set an IP address."
+  (run-cmd (cmd "hostonlyif ipconfig ~A --ip ~A" network-name ip-address))
   (run-cmd (cmd "dhcpserver add --ifname ~A --ip ~A --netmask ~A --lowerip ~A --upperip ~A"
                 network-name ip-address network-mask lower-ip upper-ip))
   (run-cmd (cmd "dhcpserver modify --ifname ~A --enable" network-name))
   (run-cmd (cmd "modifyvm ~S --intnet1 ~S" name network-name)))
+
+(defun set-vm-ip (name network-name ip-address)
+  "The easy way to set an IP address."
+  (let* ((parsed-ip (usocket:dotted-quad-to-vector-quad ip-address))
+         (lower-ip (copy-seq parsed-ip))
+         (upper-ip (copy-seq parsed-ip)))
+    (setf (elt lower-ip 3) 1
+          (elt upper-ip 3) 255)
+    (configure-network name network-name ip-address lower-ip upper-ip)))
 
 ;;; Controlling VM state
 

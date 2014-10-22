@@ -9,7 +9,8 @@
   :license "MIT"
   :depends-on (:cl-ppcre
                :uiop
-               :alexandria)
+               :alexandria
+               :usocket)
   :components ((:module "src"
                 :components
                 ((:file "cl-virtualbox"))))
