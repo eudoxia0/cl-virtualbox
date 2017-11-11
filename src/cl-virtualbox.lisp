@@ -396,7 +396,7 @@ type `type` (:vdi by default)."
   "Execute `image` on the virtual machine `name`, under the account `username`
 and `password`. If `wait-stdout` is true, wait for the program to finish and
 print its output."
-  (run-cmd (cmd "guestcontrol ~S execute --image ~S --username ~S --password ~S ~A"
+  (run-cmd (cmd "guestcontrol ~S run --exe ~S --username ~S --password ~S ~A"
                 name
                 image
                 username
