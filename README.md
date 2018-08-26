@@ -96,6 +96,6 @@ virtualbox> (find-by-uuid "9ad98045-5109-4233-8b82-4c9a49b4cab7")
 
 # License
 
-Copyright (c) 2014 Fernando Borretti (eudoxiahp@gmail.com)
+Copyright (c) 2014-2018 Fernando Borretti (eudoxiahp@gmail.com)
 
 Licensed under the MIT License.
